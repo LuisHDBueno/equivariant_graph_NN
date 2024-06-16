@@ -153,6 +153,7 @@ def train(model, optimizer, epoch, loader, backprop=True):
         loc, vel, edge_attr, charges, loc_end = data
 
         edges = loader.dataset.get_edges(batch_size, n_nodes)
+        print(edges.size())
         edges = [edges[0].to(device), edges[1].to(device)]
 
         optimizer.zero_grad()
@@ -184,20 +185,23 @@ if __name__ == '__main__':
     arestas = t.tensor(arestas, dtype=t.long)
 
     dataset_train = NBodyDataset(partition='train', dataset_name="nbody_small",
-                                 max_samples=10)
+                                 max_samples=100)
     
     loader_train = t.utils.data.DataLoader(dataset_train, batch_size=64, shuffle=True, drop_last=True)
-
-    dataset_val = NBodyDataset(partition='val', dataset_name="nbody_small",
-                               max_samples=10)
+    print(len(loader_train))
     
+    dataset_val = NBodyDataset(partition='val', dataset_name="nbody_small",
+                               max_samples=100)
+
     loader_val = t.utils.data.DataLoader(dataset_val, batch_size=64, shuffle=True, drop_last=True)
+    print(len(loader_val))
 
     dataset_test = NBodyDataset(partition='test', dataset_name="nbody_small",
-                                max_samples=10)
+                                max_samples=100)
     
     loader_test = t.utils.data.DataLoader(dataset_test, batch_size=64, shuffle=True, drop_last=True)
-    
+    print(len(loader_test))
+
     model = ModeloEquivariante(1, 4, 3, 2, 2)
     optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
 
