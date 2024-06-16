@@ -28,7 +28,7 @@ class CamadaEquivariante(nn.Module):
                                     nn.Linear(oculta_nf, oculta_nf),
                                     nn.Tanh())
 
-        self.phi_h = nn.Sequential(nn.Linear(entrada_nf + oculta_nf, oculta_nf),
+        self.phi_h = nn.Sequential(nn.Linear(oculta_nf + 1, oculta_nf),
                                     nn.Tanh(),
                                     nn.Linear(oculta_nf, saida_nf))
         
@@ -47,16 +47,22 @@ class CamadaEquivariante(nn.Module):
         return dif_radial, diferenca
     
     def media_segmentada(self, arestas, x):
-        resultado = arestas.new_full((x.size(0), 1), 0)
-        contagem = arestas.new_full((x.size(0), 1), 0)
-        resultado.scatter_add_(0, arestas[0].unsqueeze(1), x[arestas[1]])
-        contagem.scatter_add_(0, arestas[0].unsqueeze(1), t.ones_like(x[arestas[1]]))
-        return resultado / contagem.clamp(min=1)
-    
+        max_index = max(arestas[0]) + 1
+        resultado = [0] * max_index
+        contagem = [0] * max_index
+        for i, j in zip(arestas[0], arestas[1]):
+            resultado[i] += t.sum(x[j]).item()  # Assumindo que x é um tensor e queremos o valor escalar
+            contagem[i] += 1
+        # Calculando a média, evitando divisão por zero
+        media = [resultado[i] / contagem[i] if contagem[i] > 0 else 0 for i in range(max_index)]
+        return t.tensor(media).unsqueeze(1)  # Convertendo de volta para tensor
+
     def soma_segmentada(self, arestas, x):
-        resultado = arestas.new_full((x.size(0), 1), 0)
-        resultado.scatter_add_(0, arestas[0].unsqueeze(1), x[arestas[1]])
-        return resultado
+        max_index = max(arestas[0]) + 1
+        resultado = [0] * max_index
+        for i, j in zip(arestas[0], arestas[1]):
+            resultado[i] += t.sum(x[j]).item()  # Assumindo que x é um tensor e queremos o valor escalar
+        return t.tensor(resultado).unsqueeze(1)  # Convertendo de volta para tensor
 
     def forward(self, h, x, arestas, velocidade, atributos_arestas):
         linhas, cols = arestas
@@ -80,7 +86,7 @@ class CamadaEquivariante(nn.Module):
 
         m_i = self.soma_segmentada(arestas, m_ij)
 
-        h = t.cat((h, m_i), 1)
+        h = t.cat((h, m_i), dim = 1)
 
         h = self.phi_h(h)
 
@@ -160,7 +166,7 @@ def train(model, optimizer, epoch, loader, backprop=True):
         rows, cols = edges
         loc_dist = t.sum((loc[rows] - loc[cols])**2, 1).unsqueeze(1)  # relative distances among locations
         edge_attr = t.cat([edge_attr, loc_dist], 1).detach()  # concatenate all edge properties
-        loc_pred = model(nodes, loc.detach(), edges, vel, edge_attr)
+        loc_pred, _ = model(nodes, loc.detach(), edges, vel, edge_attr)
 
         loss = loss_mse(loc_pred, loc_end)
         if backprop:
@@ -201,7 +207,7 @@ if __name__ == '__main__':
     print(len(loader_test))
 
     model = ModeloEquivariante(1, 4, 3, 2, 2)
-    optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
+    optimizer = optim.Adam(model.parameters(), lr=0.00001, weight_decay=1e-5)
 
     results = {'epochs': [], 'losess': []}
     best_val_loss = 1e8
