@@ -179,43 +179,40 @@ def train(model, optimizer, epoch, loader, backprop=True):
 
 
 if __name__ == '__main__':
-    x = np.load("data/loc_train_charged5_initvel1small.npy")
-    x = t.tensor(x, dtype=t.float32)
-    velocidade = np.load("data/vel_train_charged5_initvel1small.npy")
-    velocidade = t.tensor(velocidade, dtype=t.float32)
-    h = np.load("data/charges_train_charged5_initvel1small.npy")
-    h = t.tensor(h, dtype=t.float32)
-    arestas = np.load("data/edges_train_charged5_initvel1small.npy")
-    arestas = t.tensor(arestas, dtype=t.long)
 
     dataset_train = NBodyDataset(partition='train', dataset_name="nbody_small",
-                                 max_samples=100)
+                                 max_samples=10000)
     
-    loader_train = t.utils.data.DataLoader(dataset_train, batch_size=2, shuffle=True, drop_last=True)
-    print(len(loader_train))
+    loader_train = t.utils.data.DataLoader(dataset_train, batch_size=100, shuffle=True, drop_last=True)
     
     dataset_val = NBodyDataset(partition='val', dataset_name="nbody_small",
-                               max_samples=100)
+                               max_samples=2000)
 
-    loader_val = t.utils.data.DataLoader(dataset_val, batch_size=2, shuffle=True, drop_last=True)
-    print(len(loader_val))
+    loader_val = t.utils.data.DataLoader(dataset_val, batch_size=100, shuffle=True, drop_last=True)
 
     dataset_test = NBodyDataset(partition='test', dataset_name="nbody_small",
-                                max_samples=100)
+                                max_samples= 2000)
     
-    loader_test = t.utils.data.DataLoader(dataset_test, batch_size=2, shuffle=True, drop_last=True)
-    print(len(loader_test))
+    loader_test = t.utils.data.DataLoader(dataset_test, batch_size=100, shuffle=True, drop_last=True)
 
-    model = ModeloEquivariante(1, 4, 3, 2, 2)
-    optimizer = optim.Adam(model.parameters(), lr=0.00001, weight_decay=1e-5)
+    lr = 0.001
+    n_hidden = 64
+    n_layers = 3
+    wd = 1e-8
+    model = ModeloEquivariante(1, n_hidden, 3, 2, n_layers)
+    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=wd)
 
     results = {'epochs': [], 'losess': []}
     best_val_loss = 1e8
     best_test_loss = 1e8
     best_epoch = 0
-    n_epochs = 100
+    n_epochs = 10
     for epoch in range(0, n_epochs):
-        train(model, optimizer, epoch, loader_train)
+        train_loss = train(model, optimizer, epoch, loader_train)
+        print("Epoch %d \t Train Loss: %.5f" % (epoch, train_loss))
+        results['epochs'].append(epoch)
+        results['losess'].append(train_loss)
+        """
         if epoch % (n_epochs // 10) == 0:
             #train(epoch, loader_train, backprop=False)
             val_loss = train(model, optimizer, epoch, loader_val, backprop=False)
@@ -228,9 +225,9 @@ if __name__ == '__main__':
                 best_test_loss = test_loss
                 best_epoch = epoch
             print("*** Best Val Loss: %.5f \t Best Test Loss: %.5f \t Best epoch %d" % (best_val_loss, best_test_loss, best_epoch))
-
+        """
         json_object = json.dumps(results, indent=4)
-        with open("data/losess.json", "w") as outfile:
+        with open(F"data/losess_lr{lr}.json", "w") as outfile:
             outfile.write(json_object)
     
     print("Best Val Loss: %.5f \t Best Test Loss: %.5f \t Best epoch %d" % (best_val_loss, best_test_loss, best_epoch))
